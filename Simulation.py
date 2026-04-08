@@ -10,12 +10,17 @@ import h5py
 
 from PyHEADTAIL.particles.slicing import UniformBinSlicer
 from .sim_config_manager import SimConfig
+import warnings
 
 class Simulation(object):
 
     def __init__(self, param_file='./Simulation_parameters.py'):
 
         self.pp = SimConfig(param_file)
+        self.pyecloud_is_on_gpu = bool(int(os.environ.get('PYECL_USE_GPU', False)))
+        self.cuda_visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES', None)
+        if self.cuda_visible_devices is not None:
+            self.gpus = [int(x) for x in self.cuda_visible_devices.split(",")]
 
     def init_all(self, generate_parent_eclouds=True,
             install_clouds=True):
@@ -296,6 +301,14 @@ class Simulation(object):
 
 
     def _generate_parent_eclouds(self):
+        if self.pyecloud_is_on_gpu:
+            if self.cuda_visible_devices is not None:
+                myid = self.ring_of_CPUs.myid
+                gpu = self.gpus[myid % len(self.gpus)]
+                os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
+                print(len(self.gpus), self.gpus)
+                print("Proc. %d: installing GPU ecloud on %s" % (myid, gpu))
+                print(os.environ["CUDA_VISIBLE_DEVICES"])
 
         pp = self.pp
 
@@ -475,6 +488,15 @@ class Simulation(object):
             )
 
     def _install_eclouds_in_machine_part(self):
+        if self.pyecloud_is_on_gpu:
+            if self.cuda_visible_devices is not None:
+                myid = self.ring_of_CPUs.myid
+                gpu = self.gpus[myid % len(self.gpus)]
+                os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
+                print(len(self.gpus), self.gpus)
+                print("Proc. %d: installing GPU ecloud on %s" % (myid, gpu))
+                print(os.environ["CUDA_VISIBLE_DEVICES"])
+
         # install eclouds in my part
         my_new_part = []
         self.my_list_eclouds = []
